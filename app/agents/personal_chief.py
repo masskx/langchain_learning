@@ -24,7 +24,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 import sqlite3
 # 链接sqlite
 connection = sqlite3.connect(
-    "../resources/checkpoint.db",
+    r"resources\checkpoint.db",
     check_same_thread=False
 )
 # 初始化checkpointer

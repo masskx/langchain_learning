@@ -1,9 +1,33 @@
+import { useState, useEffect } from 'react'
 import Header from './components/Header'
 import ChatArea from './components/ChatArea'
 import InputArea from './components/InputArea'
+import LoginPage from './components/LoginPage'
 import { useChat } from './hooks/useChat'
 
+const AUTH_KEY = 'personal_chief_auth'
+
 export default function App() {
+  const [user, setUser] = useState(null)
+
+  // 页面加载时检查是否已登录
+  useEffect(() => {
+    const saved = localStorage.getItem(AUTH_KEY)
+    if (saved) {
+      setUser(saved)
+    }
+  }, [])
+
+  const handleLogin = (username) => {
+    localStorage.setItem(AUTH_KEY, username)
+    setUser(username)
+  }
+
+  const handleLogout = () => {
+    localStorage.removeItem(AUTH_KEY)
+    setUser(null)
+  }
+
   const {
     messages,
     isStreaming,
@@ -13,6 +37,12 @@ export default function App() {
     uploadFile,
   } = useChat()
 
+  // 未登录：显示登录页
+  if (!user) {
+    return <LoginPage onLogin={handleLogin} />
+  }
+
+  // 已登录：显示聊天应用
   return (
     <div className="min-h-screen relative">
       {/* 背景层 */}
@@ -28,6 +58,8 @@ export default function App() {
         <Header
           onNewSession={newSession}
           disabled={isStreaming}
+          user={user}
+          onLogout={handleLogout}
         />
 
         <ChatArea

@@ -17,6 +17,9 @@ dependencies = [
     "alibabacloud-oss-v2>=0.1.0",
     "aiohttp>=3.9.0",
     "ipykernel>=7.3.0",
+    "pymilvus>=3.0.1",
+    "langchain-community>=0.4.2",
+    "langchain-text-splitters>=1.1.2",
 ]
 
 [project.optional-dependencies]

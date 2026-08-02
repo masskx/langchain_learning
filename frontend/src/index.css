@@ -1,0 +1,70 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== 基础样式 ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  font-family: 'Noto Sans SC', 'Inter', system-ui, -apple-system, sans-serif;
+  color: #44403c;
+  background: #fffbeb;
+  overflow-x: hidden;
+  min-height: 100vh;
+}
+
+/* ===== 自定义滚动条 ===== */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #e7e5e4;
+  border-radius: 8px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #d6d3d1;
+}
+
+/* ===== 文字选中颜色 ===== */
+::selection {
+  background: rgba(251, 191, 36, 0.25);
+  color: #78350f;
+}
+
+/* ===== 输入框 focus 效果 ===== */
+textarea:focus {
+  outline: none;
+}
+
+/* ===== 图片拖拽优化 ===== */
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* ===== 动画 ===== */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes dotWave {
+  0%, 80%, 100% { transform: scale(0.4); }
+  40% { transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.3s ease-out;
+}

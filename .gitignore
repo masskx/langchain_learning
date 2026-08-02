@@ -13,3 +13,7 @@ __pycache__/
 .env.test.local
 .env.production.local
 ./volumes/
+
+# uv
+.venv/
+uv.lock

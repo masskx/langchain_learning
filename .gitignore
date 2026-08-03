@@ -12,8 +12,7 @@ __pycache__/
 .env.development.local
 .env.test.local
 .env.production.local
-<<<<<<< HEAD
-./volumes/
+volumes/
 
 # uv
 .venv/
@@ -22,6 +21,3 @@ uv.lock
 # Node
 frontend/node_modules/
 frontend/dist/
-=======
-./volumes/https://github.com/masskx/MSClaw.git
->>>>>>> 947ea4d (更新 .gitignore)

@@ -1,4 +1,63 @@
 import { Sparkles, Bot, User, ImageIcon } from 'lucide-react'
+import ReactMarkdown from 'react-markdown'
+
+/**
+ * AI 消息的 Markdown 自定义渲染组件
+ * 用 Tailwind 给每种元素加样式，去掉浏览器默认样式
+ */
+function MarkdownContent({ children }) {
+  return (
+    <ReactMarkdown
+      components={{
+        // 标题
+        h1: ({ children }) => <h1 className="text-lg font-bold text-stone-800 mt-3 mb-1.5 first:mt-0">{children}</h1>,
+        h2: ({ children }) => <h2 className="text-base font-bold text-stone-800 mt-2.5 mb-1 first:mt-0">{children}</h2>,
+        h3: ({ children }) => <h3 className="text-sm font-semibold text-stone-700 mt-2 mb-0.5 first:mt-0">{children}</h3>,
+        // 段落
+        p: ({ children }) => <p className="mb-1.5 last:mb-0">{children}</p>,
+        // 列表
+        ul: ({ children }) => <ul className="list-disc pl-4 mb-1.5 space-y-0.5 last:mb-0">{children}</ul>,
+        ol: ({ children }) => <ol className="list-decimal pl-4 mb-1.5 space-y-0.5 last:mb-0">{children}</ol>,
+        li: ({ children }) => <li className="text-stone-700">{children}</li>,
+        // 行内代码
+        code: ({ className, children, ...props }) => {
+          const isBlock = className?.startsWith('language-')
+          if (isBlock) {
+            return <code className="block bg-stone-800 text-emerald-300 text-xs px-3 py-2 rounded-lg my-1.5 overflow-x-auto">{children}</code>
+          }
+          return <code className="bg-amber-100 text-amber-800 text-xs px-1.5 py-0.5 rounded font-mono" {...props}>{children}</code>
+        },
+        // 粗体 / 斜体
+        strong: ({ children }) => <strong className="font-semibold text-stone-800">{children}</strong>,
+        em: ({ children }) => <em className="italic text-stone-600">{children}</em>,
+        // 分割线
+        hr: () => <hr className="my-2 border-stone-200" />,
+        // 引用
+        blockquote: ({ children }) => (
+          <blockquote className="border-l-3 border-amber-400 pl-3 my-1.5 text-stone-600 italic">
+            {children}
+          </blockquote>
+        ),
+        // 表格
+        table: ({ children }) => (
+          <div className="overflow-x-auto my-1.5">
+            <table className="w-full text-xs border-collapse">{children}</table>
+          </div>
+        ),
+        th: ({ children }) => <th className="border border-stone-300 bg-stone-100 px-2 py-1 text-left font-semibold">{children}</th>,
+        td: ({ children }) => <td className="border border-stone-300 px-2 py-1">{children}</td>,
+        // 链接
+        a: ({ href, children }) => (
+          <a href={href} target="_blank" rel="noopener noreferrer" className="text-amber-600 underline hover:text-amber-800">
+            {children}
+          </a>
+        ),
+      }}
+    >
+      {children}
+    </ReactMarkdown>
+  )
+}
 
 /**
  * 消息气泡
@@ -30,13 +89,13 @@ export default function MessageBubble({ message }) {
         {/* 文字内容 */}
         {message.content && (
           <div className={`
-            px-4 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap break-words
+            px-4 py-2.5 rounded-2xl text-sm leading-relaxed break-words
             ${isUser
-              ? 'bg-gradient-to-br from-amber-50 to-orange-100 text-stone-700 border border-amber-200/50'
+              ? 'bg-gradient-to-br from-amber-50 to-orange-100 text-stone-700 border border-amber-200/50 whitespace-pre-wrap'
               : 'bg-white/80 backdrop-blur-sm text-stone-700 border border-stone-200/50 shadow-sm'
             }
           `}>
-            {message.content}
+            {isUser ? message.content : <MarkdownContent>{message.content}</MarkdownContent>}
             {/* 流式光标 */}
             {isStreaming && (
               <span className="inline-flex ml-0.5">

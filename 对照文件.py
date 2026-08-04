@@ -1,93 +1,144 @@
+好，只给示例代码，你自己动手。
 
-"""
+改动涉及 6 个文件
+1. frontend/src/App.jsx — 把模型状态提升到顶层
 
-"
-@tool
-def search_local_recipes(query: str) -> str:
-    """
-    # 从本地食谱知识库中搜索相关食谱。
-    # 当用户问怎么做某道菜、有什么食材能做什么菜、或者需要食谱推荐时，优先使用此工具。
-    # 参数 query: 搜索关键词，例如"西红柿鸡蛋"、"低脂健身餐"、"快手晚餐"
-    """
-    client = _get_client()
-    embed_model = _get_embed_model()
+// 新增状态
+const [model, setModel] = useState('qwen')
 
-    # 向量化查询
-    query_vector = embed_model.embed_query(query)
+// 传给 useChat
+const { messages, isStreaming, uploading, sendMessage, newSession, uploadFile } = useChat(model)
 
-    # Milvus 检索 top-5
-    results = client.search(
-        collection_name=COLLECTION_NAME,
-        data=[query_vector],
-        limit=5,
-        output_fields=["text", "source", "chunk_id"],
+// 传给 Sidebar
+<Sidebar
+  isOpen={sidebarOpen}
+  onClose={() => setSidebarOpen(false)}
+  user={user}
+  activeModel={model}
+  onModelChange={setModel}
+/>
+2. frontend/src/components/Sidebar.jsx — 接收 props 替代本地 state
+
+// props 改成
+export default function Sidebar({ isOpen, onClose, user, activeModel, onModelChange }) {
+  // 删掉这行：const [activeModel, setActiveModel] = useState('qwen')
+
+  // 按钮 onClick 改成
+  onClick={() => onModelChange(m.id)}
+3. frontend/src/hooks/useChat.js — 传递 model 参数
+
+// 函数签名加上 model
+export function useChat(model) {
+
+  // sendMessage 里调用 streamChat 时多传 model
+  await streamChat(
+    { message: text, imageUrl, threadId, model },  // ← 加了 model
+    // onToken, onDone, onError 不变...
+  )
+}, [threadId, model])  // ← 依赖数组加上 model
+4. frontend/src/api/chat.js — 请求体带上 model
+
+export async function streamChat({ message, imageUrl, threadId, model }, onToken, onDone, onError) {
+  const res = await fetch(`${BASE}/chat/stream`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      message,
+      image_url: imageUrl || null,
+      thread_id: threadId,
+      model: model || 'qwen',   // ← 新增
+    }),
+  })
+  // 后面不变...
+}
+5. app/models/schemas.py — ChatRequest 加字段
+
+from pydantic import BaseModel, Field
+
+class ChatRequest(BaseModel):
+    message: str
+    image_url: str | None = None
+    thread_id: str = "default"
+    model: str = "qwen"   # ← 新增，默认 qwen
+6. app/agents/personal_chief.py — 根据 model 动态选 LLM
+核心思路：当前 model 是模块级硬编码的，改成懒加载 + 缓存，按需取不同模型。
+
+
+import os
+from langchain_openai import ChatOpenAI
+
+# 模型注册表
+MODELS = {
+    "qwen": {
+        "model": "qwen3.6-flash",
+        "base_url": os.getenv("BAILIAN_BASE_URL"),
+        "api_key": os.getenv("BAILIAN_API_KEY"),
+    },
+    "deepseek": {
+        "model": "deepseek-ai/DeepSeek-V4-Flash",
+        "base_url": os.getenv("GUIJI_BASE_URL"),
+        "api_key": os.getenv("GUIJI_API_KEY"),
+    },
+}
+
+_model_cache: dict[str, ChatOpenAI] = {}
+
+def get_model(model_name: str = "qwen") -> ChatOpenAI:
+    """根据模型名获取 ChatOpenAI 实例，带缓存"""
+    if model_name not in _model_cache:
+        cfg = MODELS.get(model_name, MODELS["qwen"])
+        _model_cache[model_name] = ChatOpenAI(
+            model=cfg["model"],
+            base_url=cfg["base_url"],
+            api_key=cfg["api_key"],
+        )
+    return _model_cache[model_name]
+
+
+# ---- Agent 创建改成函数 ----
+
+from langchain.agents import create_agent
+
+def get_agent(model_name: str = "qwen"):
+    """根据模型名创建 Agent 实例"""
+    model = get_model(model_name)
+    return create_agent(
+        model=model,
+        tools=[search_local_recipes, web_search],
+        system_prompt=system_prompt,
+        checkpointer=checkpointer,
     )
 
-    if not results or not results[0]:
-        return "本地知识库中没有找到相关食谱。"
 
-    # 拼接检索结果
-    parts = []
-    for i, hit in enumerate(results[0], 1):
-        text = hit["entity"]["text"]
-        score = hit["distance"]
-        parts.append(f"[食谱{i} | 相关度: {score:.2f}]\n{text}")
+# ---- search_recipes 函数加 model 参数 ----
 
-    return "\n\n---\n\n".join(parts)
-第四步：修改 Agent
-你需要改 app/agents/personal_chief.py：
+async def search_recipes(prompt: str, image: str, thread_id: str, model_name: str = "qwen"):
+    logger.info(f"[用户]: {prompt}, model: {model_name}, thread_id: {thread_id}")
+    agent = get_agent(model_name)
+    # ... 后面不变
+注意：原来的模块级 model 和 agent 变量删掉，改成上面的函数和缓存。
 
-4.1 导入检索工具
-在文件顶部 import 区加一行：
+7. app/api/v1/chat.py — 把 model 传给 agent
 
+@router.post("/chat/stream")
+async def chat_stream(req: ChatRequest):
+    async def event_stream():
+        async for token in search_recipes(
+            prompt=req.message,
+            image=req.image_url or "",
+            thread_id=req.thread_id,
+            model_name=req.model,   # ← 新增
+        ):
+            yield token
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+数据流总结
 
-from app.rag.retriever import search_local_recipes
-4.2 把工具加入 Agent
-create_agent 那一行，把 tools=[web_search] 改成：
-
-
-agent = create_agent(
-    model=model,
-    tools=[search_local_recipes, web_search],
-    system_prompt=system_prompt,
-    checkpointer=checkpointer
-)
-4.3 更新系统提示词
-system_prompt 改成引导 Agent 先搜本地、本地没有再用 Tavily：
-
-
-system_prompt = """
-# 你是一名私人厨师。收到用户提供的食材照片或清单后，请按以下流程操作：
-# 1. 识别和评估食材：若用户提供照片，首先辨识所有可见食材。基于食材的外观状态，评估其新鲜度与可用量，整理出一份"当前可用食材清单"。
-# 2. 智能食谱检索：首先调用 search_local_recipes 工具从本地知识库检索匹配食谱。如果本地搜索结果不足3个或相关性不高，再调用 web_search 工具从互联网补充搜索。
-# 3. 多维度评估与排序：从营养价值和制作难度两个维度对检索到的候选食谱进行量化打分，并根据得分排序，制作简单且营养丰富的排名靠前。
-# 4. 结构化方案输出：把排序后的食谱整理为一份结构清晰的建议报告，要包含食谱信息、得分、推荐理由，帮助用户快速做出决策。
-
-# 请严格按照流程，优先调用 search_local_recipes 工具搜索本地食谱，本地搜索不足时才调用 web_search 工具。
-"""
-第五步：运行 & 验证
-5.1 确保 Milvus 在跑
-
-docker-compose up -d
-docker ps  # 确认 milvus-standalone 是 healthy
-5.2 入库食谱数据
-
-python -m app.rag.ingest
-预期输出：成功插入 N 条记录
-
-5.3 启动应用
-
-python -m app.main
-5.4 测试
-在聊天界面问 "西红柿和鸡蛋能做什么菜？"，观察 Agent 是否走了 search_local_recipes 工具。你也可以在后端日志里看到工具调用情况。
-
-操作清单
-步骤	做什么	涉及文件
-1	uv add pymilvus langchain-community langchain-text-splitters	pyproject.toml
-2	写 10-15 道食谱	新建 resources/recipes.txt
-3	创建入库脚本	新建 app/rag/ingest.py
-4	创建检索工具	新建 app/rag/retriever.py
-5	改 Agent：导入工具、加到 tools、更新 prompt	改 app/agents/personal_chief.py
-6	跑 docker-compose up -d → 跑入库脚本 → 启动应用测试	—
-有任何一步卡住了随时说，我帮你排查。做完这个之后，你的 Agent 就是 "本地知识库 + 联网搜索" 双工具驱动的了，和 agentic_rag.ipynb 学的模式完全一致。
-""
+用户点 Sidebar 选模型
+  → App.jsx setModel('deepseek')
+  → useChat.sendMessage 带 model
+  → api/chat.js POST 请求体带 model: "deepseek"
+  → FastAPI ChatRequest.model = "deepseek"
+  → search_recipes(model_name="deepseek")
+  → get_model("deepseek") → DeepSeek ChatOpenAI 实例
+  → create_agent → Agent 用 DeepSeek 推理
+改完后的效果：Sidebar 里点 Qwen → 走百炼 API，点 DeepSeek → 走硅基流动 API，实时切换。

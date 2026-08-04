@@ -1,8 +1,5 @@
 ### 这里是给Agent调用的检索工具
-from unittest import result
 from dotenv import load_dotenv
-
-from pymilvus.orm import collection
 load_dotenv(override=True)
 import os
 from pymilvus import MilvusClient
@@ -10,7 +7,7 @@ from langchain_openai import OpenAIEmbeddings
 from langchain_core.documents import Document
 from langchain.tools import tool
 
-MILVUS_URI = "http//:localhost:19530"
+MILVUS_URI = "http://localhost:19530"
 DB_NAME = "personal_chief"
 COLLECTION_NAME = "recipes"
 EMBED_MODEL_NAME = "Pro/BAAI/bge-m3"
@@ -51,7 +48,7 @@ def search_local_recipes(query:str)->str:
     query_vector = embed_model.embed_query(query)
     # Milvus检索Top5
     results = client.search(
-        collection_name=COLLECTION_NAME
+        collection_name=COLLECTION_NAME,
         data=[query_vector],
         limit=5,
         output_fields=["text","source","chunk_id"],

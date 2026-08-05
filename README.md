@@ -212,7 +212,7 @@ message = HumanMessage(content=[
 ])
 ```
 
-### Tool 定义（[jupyter/tool.ipynb](jupyter/tool.ipynb)）
+### Tool 定义（[jupyter/tool.ipynb](jupyter/langchain/tool.ipynb)）
 
 ```python
 from pydantic import BaseModel, Field, field_validator

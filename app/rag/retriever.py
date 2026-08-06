@@ -32,7 +32,7 @@ def _get_embed_model()->OpenAIEmbeddings:
             base_url=os.getenv("GUIJI_BASE_URL")
         )
     return _embed_model
-    
+
 @tool
 def search_local_recipes(query:str)->str:
     """

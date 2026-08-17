@@ -20,6 +20,8 @@ dependencies = [
     "pymilvus>=3.0.1",
     "langchain-community>=0.4.2",
     "langchain-text-splitters>=1.1.2",
+    "mcp[cli]>=2.0.0",
+    "httpx>=0.28.1",
 ]
 
 [project.optional-dependencies]
